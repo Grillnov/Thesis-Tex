@@ -1,0 +1,158 @@
+\chapter{Caffe的移植}
+
+\section{Caffe}
+Caffe是一个开源的深度学习框架，主体由贾扬清在伯克利分校读PhD期间完成，目前在开源社区GitHub上由二百多名开发者维护。
+
+本文选择Caffe进行移植并优化的一个原因是其灵活性。Caffe通过Prototxt协议来定义神经网络结构，只需写好配置文件就能实现不同的卷积神经网络。其主体代码由C++写成，也有封装好的Python和MATLAB 接口，底层高层接口均比较完备，不仅适合灵活开发比较常规的网络，也可以很方便地加入自定义的操作，开发原创的CNN模型。在Caffe推出后一年内，就有超过1000个fork分支出去的自定义Caffe版本~\supercite{CaffeHome}。
+
+本文选择Caffe进行移植的另外一个原因是其性能。在Caffe刚推出时，它在NVIDIA K40 GPU平台上就可以达到每天6000万张图片的处理速度（每张图片前向传播需要1毫秒，训练迭代平均需要4毫秒），其在CPU上的速度同样惊人，而且优化潜力巨大。Intel曾针对Caffe推出了适用于Intel x86架构的CPU版Caffe，相比原版Caffe在纯CPU模式下可以达到13.5倍的速度提升~\supercite{Intel}。
+
+这主要得益于其底层运算操作的设计。在卷积神经网络的特殊语境下，卷积的计算过程伪代码逻辑上是一个六重循环（逻辑上六层循环指标w, h, x, y, m, d分别为：输入特征图长，输入特征图宽，卷积核长，卷积核宽，输出频道数，输入频道数）。Caffe原作者贾扬清在文档~\supercite{CaffeMemo}中将伪码实现如下：
+for w in 1..W\\
+  for h in 1..H\\
+    for x in 1..K\\
+      for y in 1..K\\
+        for m in 1..M\\
+          for d in 1..D\\
+            output(w, h, m) += input(w+x, h+y, d) * filter(m, x, y, d)\\
+          end\\
+        end\\
+      end\\
+    end\\
+  end\\
+end
+如果真的按六重循环嵌套的方式实现，优化将根本无从谈起，因为嵌套循环实在太深，无法对任意的输入维度保证良好的性能。而且，由于滤波器需要在输入特征图上滑动，这种实现的空间局部性很差，无法有效利用缓存。
+
+Caffe将难以优化的卷积操作简化为已经高度优化的问题——矩阵相乘。自然科学计算和计算机科学中的很多问题都可以用线性代数表达，基础线性代数库（Basic Linear Algebra Subprograms, BLAS）已经被高度优化，具有良好性能。如果将输入特征图原地展开为列向量，将滤波器权重对应展开为矩阵，则卷积层计算可以写成稀疏矩阵与列向量相乘的形式。这就是Caffe底层运算的机制。同理，全连接层也可写作矩阵相乘的形式。目前Caffe支持的BLAS有开源跨平台的ATLAS和OpenBLAS，以及Intel公司为其处理器优化过的MKL。在NVIDIA生产的GPU上，Caffe也支持NVIDIA的cuBLAS。
+
+将滤波器展开为矩阵、输入原地展开为列向量的方式虽然能利用高度优化的BLAS库，获得良好性能，但缺点是对空间要求很大。如果在GPU上并行实现，手机芯片上GPU和CPU间的通信时间将取代计算时间成为性能瓶颈（见第八章讨论），故本文选择在CPU上使用OpenMP优化Caffe。因MKL闭源，且只能在Intel CPU上使用，在CPU上可用的BLAS只有ATLAS和OpenBLAS两个选项。本文选择使用OpenBLAS。
+
+\section{OpenMP}
+
+OpenMP是一种开放标准的编译器并行化指导方案，只需在一些合适的地方输入预编译指令，就可以暗示编译器在共享内存的多处理器系统上自动产生并行化的代码。在一些串行的代码上应用\#pragma omp编译指令表明意图，即可令代码多线程并行执行。新一代手机ARM处理器是多核的，属于共享内存的多处理器系统，C++写成的Caffe在ARM上可以被OpenMP并行优化。
+
+手机安卓系统的应用开发语言是Java，C++写成的代码需要借助安卓开发套件NDK，编译成动态库，在Java中封装为native接口使用。Caffe官方没有对ARM架构和对安卓系统的支持，本文借助GitHub的第三方项目Caffe for Android~\supercite{CaffeAndroid}的生成脚本进行移植，通过脚本指导编译器使用合适的套件，将Caffe以及其依赖库编译成指定架构、指定安卓版本的库。
+
+BVLC的Caffe原版代码中并没有考虑加入OpenMP并行化，其多线程并行化主要体现在其依赖库上。如，OpenBLAS、ATLAS等CPU运行的BLAS支持OpenMP并行化，GPU上使用NVIDIA的CUDA通用计算库可以支持GPU的多线程并行。故，我们如果要在Caffe本身的代码中加入OpenMP并行化，需要在编译脚本中加入对OpenMP的支持。
+
+Caffe借助CMake寻找依赖包，生成编译脚本。我们需要在caffe-android-lib中的Caffe CMakelist.txt中加入对OpenMP的支持：
+\lstset{language=c++}
+\begin{lstlisting}[frame=tb]{somecode}
+    #add OpenMP
+    find_package(OpenMP)
+    if (OPENMP_FOUND)
+        message("OPENMP FOUND")
+    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+    endif()
+\end{lstlisting}
+
+为支持OpenMP的软件指定线程数主要有两种方法：
+\begin{enumerate}
+		\item[\textbf{显式:}]
+		在每处OpenMP预编译宏中，显式地给出受这个宏控制的并行化代码应当具有的线程数量，如：\#pragma omp parallel num\_threads(8)
+		\item[\textbf{隐式:}]
+		在代码中不指定并行化代码，运行之前设定环境变量OMP\_NUM\_THREADS来控制线程数。如，export OMP\_NUM\_THREADS=8
+\end{enumerate}
+本文使用显式方式指定线程数量，根据卷积层本身的维数性质计算出合适的线程数。
+
+由于Caffe最后被编译为动态链接库caffe.so供可执行文件caffe-time.bin运行时链接，我们还需要在环境变量LD\_LIBRARY\_PATH中加入动态链接库caffe.so的路径，以确保库能够被可执行文件找到。
+综上，在执行caffe-time.bin之前，我们需要通过adb shell运行如下脚本设定环境变量：
+\begin{lstlisting}[frame=tb]{somecode}
+    #!/system/bin/sh
+    export LD_LIBRARY_PATH=./:$LD_LIBRARY_PATH
+    export OMP_NUM_THREADS=4
+\end{lstlisting}
+
+\section{基准测试}
+
+本文采用AlexNet~\supercite{AlexNet}网络作为基准，评估Caffe的性能。AlexNet~\supercite{AlexNet}的网络结构如图【图】，其主体由五层卷积层连接三层全连接层构成。为方便开发者测试网络性能，Caffe封装了time函数，对外以argument 的形式开放。我们将time函数劫持出来，写到自定义源文件caffe-time.cpp的入口，放到/tools下随Caffe的其他源文件一起编译得到caffe-time.bin。编译完成后，我们采用这个命令作为性能评估基准：\\
+./build/tools/caffe-time.bin --model=./models/bvlc\_alexnet/deploy.prototxt –iterations 50
+
+caffe-time.bin代表含有time函数的可执行文件；model参数赋值为AlexNet的ProtoTXT格式网络描述；iterations为测试的迭代次数。由于第一次迭代开始之前，内存和CPU缓存是冷的，所以需要多次迭代测试取平均值来消除这种误差。“一次迭代”在这个语境下指对整个网络进行一次前向计算和反向传播。该命令等价于
+./build/tools/caffe time --model=./models/bvlc\_alexnet/deploy.prototxt –iterations 50
+
+执行命令之后，Caffe的输出范例如下~\supercite{Intel}
+I0101 01:08:22.013758  3686 caffe-time.cpp:56] Testing for 50 iterations.\\
+I0101 01:08:25.120884  3686 caffe-time.cpp:84] Iteration: 1 forward-backward time: 3107 ms.\\
+I0101 01:08:27.764709  3686 caffe-time.cpp:84] Iteration: 2 forward-backward time: 2643 ms.\\
+I0101 01:08:30.477269  3686 caffe-time.cpp:84] Iteration: 3 forward-backward time: 2712 ms.\\
+I0101 01:08:33.219909  3686 caffe-time.cpp:84] Iteration: 4 forward-backward time: 2742 ms.\\
+I0101 01:08:35.858683  3686 caffe-time.cpp:84] Iteration: 5 forward-backward time: 2638 ms.\\
+I0101 01:08:38.482145  3686 caffe-time.cpp:84] Iteration: 6 forward-backward time: 2623 ms.\\
+……\\
+I0101 01:10:31.874108  3686 caffe-time.cpp:84] Iteration: 47 forward-backward time: 2829 ms.\\
+I0101 01:10:34.847990  3686 caffe-time.cpp:84] Iteration: 48 forward-backward time: 2973 ms.\\
+I0101 01:10:37.622038  3686 caffe-time.cpp:84] Iteration: 49 forward-backward time: 2773 ms.\\
+I0101 01:10:40.450104  3686 caffe-time.cpp:84] Iteration: 50 forward-backward time: 2827 ms.\\
+I0101 01:10:40.450280  3686 caffe-time.cpp:87] Average time per layer:\\
+I0101 01:10:40.450315  3686 caffe-time.cpp:90]       dataforward: 0.00376 ms.\\
+I0101 01:10:40.450361  3686 caffe-time.cpp:93]       databackward: 0.00446 ms.\\
+I0101 01:10:40.450405  3686 caffe-time.cpp:90]      conv1forward: 158.396 ms.\\
+I0101 01:10:40.450447  3686 caffe-time.cpp:93]      conv1backward: 157.189 ms.\\
+I0101 01:10:40.450488  3686 caffe-time.cpp:90]      relu1forward: 14.4338 ms.\\
+I0101 01:10:40.450694  3686 caffe-time.cpp:93]      relu1backward: 0.00406 ms.\\
+I0101 01:10:40.450765  3686 caffe-time.cpp:90]      norm1forward: 61.1189 ms.\\
+I0101 01:10:40.450791  3686 caffe-time.cpp:93]      norm1backward: 69.6954 ms.\\
+I0101 01:10:40.450812  3686 caffe-time.cpp:90]      pool1forward: 104.729 ms.\\
+I0101 01:10:40.450834  3686 caffe-time.cpp:93]      pool1backward: 0.00524 ms.\\
+I0101 01:10:40.450855  3686 caffe-time.cpp:90]      conv2forward: 316.762 ms.\\
+I0101 01:10:40.450878  3686 caffe-time.cpp:93]      conv2backward: 306.659 ms.\\
+I0101 01:10:40.450899  3686 caffe-time.cpp:90]      relu2forward: 13.2367 ms.\\
+I0101 01:10:40.450920  3686 caffe-time.cpp:93]      relu2backward: 0.00414 ms.\\
+I0101 01:10:40.450942  3686 caffe-time.cpp:90]      norm2forward: 47.8888 ms.\\
+I0101 01:10:40.450963  3686 caffe-time.cpp:93]      norm2backward: 47.677 ms.\\
+I0101 01:10:40.450985  3686 caffe-time.cpp:90]      pool2forward: 64.9354 ms.\\
+I0101 01:10:40.451006  3686 caffe-time.cpp:93]      pool2backward: 0.00482 ms.\\
+I0101 01:10:40.451028  3686 caffe-time.cpp:90]      conv3forward: 209.004 ms.\\
+I0101 01:10:40.451049  3686 caffe-time.cpp:93]      conv3backward: 211.287 ms.\\
+I0101 01:10:40.451070  3686 caffe-time.cpp:90]      relu3forward: 3.98946 ms.\\
+I0101 01:10:40.451089  3686 caffe-time.cpp:93]      relu3backward: 0.00468 ms.\\
+I0101 01:10:40.451109  3686 caffe-time.cpp:90]      conv4forward: 156.937 ms.\\
+I0101 01:10:40.451132  3686 caffe-time.cpp:93]      conv4backward: 157.686 ms.\\
+I0101 01:10:40.451151  3686 caffe-time.cpp:90]      relu4forward: 3.49588 ms.\\
+I0101 01:10:40.451172  3686 caffe-time.cpp:93]      relu4backward: 0.00434 ms.\\
+I0101 01:10:40.451191  3686 caffe-time.cpp:90]      conv5forward: 107.479 ms.\\
+I0101 01:10:40.451212  3686 caffe-time.cpp:93]      conv5backward: 107.145 ms.\\
+I0101 01:10:40.451232  3686 caffe-time.cpp:90]      relu5forward: 2.47902 ms.\\
+I0101 01:10:40.451253  3686 caffe-time.cpp:93]      relu5backward: 0.00286 ms.\\
+I0101 01:10:40.451272  3686 caffe-time.cpp:90]      pool5forward: 14.9739 ms.\\
+I0101 01:10:40.451293  3686 caffe-time.cpp:93]      pool5backward: 0.00368 ms.\\
+I0101 01:10:40.451313  3686 caffe-time.cpp:90]        fc6forward: 203.838 ms.\\
+I0101 01:10:40.451333  3686 caffe-time.cpp:93]        fc6backward: 74.5167 ms.\\
+I0101 01:10:40.451355  3686 caffe-time.cpp:90]      relu6forward: 0.41766 ms.\\
+I0101 01:10:40.451375  3686 caffe-time.cpp:93]      relu6backward: 0.00292 ms.\\
+I0101 01:10:40.451395  3686 caffe-time.cpp:90]      drop6forward: 0.44218 ms.\\
+I0101 01:10:40.451415  3686 caffe-time.cpp:93]      drop6backward: 0.0051 ms.\\
+I0101 01:10:40.451435  3686 caffe-time.cpp:90]        fc7forward: 83.049 ms.\\
+I0101 01:10:40.451457  3686 caffe-time.cpp:93]        fc7backward: 34.9812 ms.\\
+I0101 01:10:40.451476  3686 caffe-time.cpp:90]      relu7forward: 0.26226 ms.\\
+I0101 01:10:40.451497  3686 caffe-time.cpp:93]      relu7backward: 0.00266 ms.\\
+I0101 01:10:40.451517  3686 caffe-time.cpp:90]      drop7forward: 0.47262 ms.\\
+I0101 01:10:40.451538  3686 caffe-time.cpp:93]      drop7backward: 0.00318 ms.\\
+I0101 01:10:40.451557  3686 caffe-time.cpp:90]        fc8forward: 21.9401 ms.\\
+I0101 01:10:40.451578  3686 caffe-time.cpp:93]        fc8backward: 10.1705 ms.\\
+I0101 01:10:40.451598  3686 caffe-time.cpp:90]       probforward: 0.45548 ms.\\
+I0101 01:10:40.451619  3686 caffe-time.cpp:93]       probbackward: 0.1202 ms.\\
+I0101 01:10:40.451649  3686 caffe-time.cpp:98] Average Forward pass: 1591.12 ms.\\
+I0101 01:10:40.451672  3686 caffe-time.cpp:100] Average Backward pass: 1177.4 ms.\\
+I0101 01:10:40.451692  3686 caffe-time.cpp:102] Average Forward-Backward: 2768.74 ms.\\
+I0101 01:10:40.451713  3686 caffe-time.cpp:104] Total Time: 138437 ms.\\
+I0101 01:10:40.451732  3686 caffe-time.cpp:105] *** Benchmark ends ***\\
+
+可以从输出中得知：
+\begin{enumerate}
+		\item[\textbf{·}]
+		指定次数迭代中，每次迭代使用总时间、每次迭代使用的平均时间；
+		\item[\textbf{·}]
+        多次迭代中各层的平均耗费时间；
+        \item[\textbf{·}]
+        多次迭代中总的前向反向计算时间；
+        \item[\textbf{·}]
+        总共所用时间。
+\end{enumerate}
+
+我们对Armeabi-v7a和Arm64-v8a两种ARM架构进行测试。
+其中，Armeabi-v7a对应的测试设备为ZTE Nubia Z7；【来源请求，性能参数】Arm64-v8a对应的测试平台为Qualcomm 820开发板。【来源请求，性能参数】
+两个平台使用【commit号版本】的caffe-android-lib脚本进行交叉编译。
+考虑到Arm64-v8a的兼容性，使用NDK版本为【NDK r11c】
