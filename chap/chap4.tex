@@ -42,8 +42,8 @@ Caffe借助CMake寻找依赖包，生成编译脚本。我们需要在caffe-android-lib中的Caffe CMa
     find_package(OpenMP)
     if (OPENMP_FOUND)
         message("OPENMP FOUND")
-    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
-    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+        set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+        set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
     endif()
 \end{lstlisting}
 

@@ -1,5 +1,5 @@
 \chapter{代码优化}
-Caffe的设计将数据抽象为四维的Blob，将所有对数据的操作（包括卷积、全连接、Pooling、激活函数、Softmax）抽象为层（Layer），Blob数据在Layer中被处理，在Layer间流动。各种Layer的实现存放在src/caffe/layers/下，CPU版本的源文件后缀为.cpp，GPU版本的源文件后缀为.cu（NVIDIA CUDA通用计算技术）。本文在CPU上执行OpenMP并行化优化，故优化对象主要为src/caffe/layers/下的各.cpp文件。
+Caffe的设计将数据抽象为四维的Blob，将所有对数据的操作（包括卷积、全连接、Pooling、激活函数、Softmax）抽象为层（Layer），Blob数据在Layer中被处理，在Layer间流动。各种Layer的实现存放在src/caffe/layers/下，CPU版本的源文件后缀为.cpp，GPU版本的源文件后缀为.cu（NVIDIA CUDA 通用计算技术）。本文在CPU上执行OpenMP并行化优化，故优化对象主要为src/caffe/layers/下的各.cpp文件。
 
 \section{热点分析}
 为了确定优化目标，我们需要分析Caffe中占资源较高的热点函数。
@@ -38,24 +38,25 @@ im2col的逆操作，将列向量转回图片。运算量同理。
 
 \lstset{language=c++}
 \begin{lstlisting}[frame=tb]{somecode}
-   #ifdef _OPENMP
+#ifdef _OPENMP
     #pragma omp parallel for num_threads(this->num_of_threads_)
 #endif
-    for (int n = 0; n < this->num_; ++n) {
-      this->forward_cpu_gemm(bottom_data + n * this->bottom_dim_, weight,
-          top_data + n * this->top_dim_);
+    for (int n = 0; n < this->num_; ++n) 
+    {
+        this->forward_cpu_gemm(bottom_data + n * this->bottom_dim_, weight, 
+        top_data + n * this->top_dim_);
 \end{lstlisting}
 
 反向传播同理：
 \lstset{language=c++}
 \begin{lstlisting}[frame=tb]{somecode}
-   #ifdef _OPENMP
-      #pragma omp parallel for num_threads(this->num_of_threads_)
+#ifdef _OPENMP
+    #pragma omp parallel for num_threads(this->num_of_threads_)
 #endif
-        for (int n = 0; n < this->num_; ++n) {
-          // gradient w.r.t. bottom data, if necessary.
+    for (int n = 0; n < this->num_; ++n) 
+    {// gradient w.r.t. bottom data, if necessary.
           this->backward_cpu_gemm(top_diff + n * this->top_dim_, weight,
-              bottom_diff + n * this->bottom_dim_);
+          bottom_diff + n * this->bottom_dim_);
 \end{lstlisting}
 
 通过并行化GEMM矩阵相乘操作，我们完成了对卷积层的并行优化。
@@ -71,10 +72,12 @@ Caffe使用四重循环实现这两种Pooling操作，循环指标分别为图片批次、图片频道、长、宽
 
 \lstset{language=c++}
 \begin{lstlisting}[frame=tb]{somecode}
-   #ifdef _OPENMP
-#pragma omp parallel for collapse(2)
-for (int n = 0; n < bottom[0]->num(); ++n) {
-      for (int c = 0; c < channels_; ++c) {
+#ifdef _OPENMP
+    #pragma omp parallel for collapse(2)
+    for (int n = 0; n < bottom[0]->num(); ++n) 
+    {
+      for (int c = 0; c < channels_; ++c) 
+      {
 \end{lstlisting}
 
 其中，预编译宏“collapse(2)”意为对下列代码的两重for循环都做展开，进行并行。由于外面两重循环分别代表对批次中的不同图片、图片中的不同频道迭代，这个预编译宏能够达到令每个下采样格子互相并行计算的效果。
