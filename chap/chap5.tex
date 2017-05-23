@@ -8,13 +8,13 @@ Caffe的设计将数据抽象为四维的Blob，将所有对数据的操作（包括卷积、全连接、Pooling
 \textbf{gemm\_omp\_driver\_v2:}\\
 选择Intel的MKL库作为Caffe底层BLAS计算库时，该函数是MKL库libmkl\_intel\_thread.so中的一个函数。GEMM为General Matrix-Matrix的缩写，即“通用矩阵-矩阵相乘”。如前文所述，Caffe 将难以直接优化的卷积层的计算过程以线性代数矩阵相乘的形式表达，而全连接层计算过程本身即可写作矩阵相乘形式，故该函数是Caffe进行卷积、全连接计算的核心函数，占用时间最多。
 
-\textbf{caffe::im2col\_cpu<float>:}\\
+\textbf{caffe::im2col\_cpu\textless float\textgreater:}\\
 该函数名称im2col\_cpu是“image to column on cpu”的缩写，即“从特征图图像到列向量的CPU操作”。如前文所述，Caffe将滤波器对图像的卷积表达为矩阵与列向量相乘的形式，二维图像需要转换到可供稀疏矩阵相乘的列向量。该过程将图像原地展开，补0填充为非常长的列向量，运算量较大。
 
-\textbf{caffe::PoolingLayer<float>::Forward\_cpu:}\\
+\textbf{caffe::PoolingLayer\textless float\textgreater::Forward\_cpu:}\\
 该函数为Caffe执行Pooling层前向计算的函数。Pooling是一个对特征图下采样降维的过程，在特征图较大、特征图频道数较多时，该层的运算量不可忽略。
 
-\textbf{caffe::col2im\_cpu<float>:}\\
+\textbf{caffe::col2im\_cpu\textless float\textgreater:}\\
 im2col的逆操作，将列向量转回图片。运算量同理。
 
 \section{对卷积层的优化}
@@ -24,40 +24,27 @@ im2col的逆操作，将列向量转回图片。运算量同理。
 
 故，我们在基类BaseConvolutionLayer中维护成员变量num\_of\_threads\_为设定的线程数，并设定其初始值为1。解析网络结构配置文件之后，我们取num\_of\_threads\_为OpenMP在平台上最多支持的线程数和Batch Size二者之间较小者。
 即$num\_of\_threads = min (omp\_get\_max\_threads(), Batch Size)$
-具体到代码上的表达为：
+具体到代码上的表达为：\\
+\indent num\_of\_threads\_ = 1;\\
+\#ifdef \_OPENMP\\
+\indent  num\_of\_threads\_ = omp\_get\_max\_threads() \textless bottom[0]-\textgreater shape(0) ? \\
+\indent omp\_get\_max\_threads() : bottom[0]-\textgreater shape(0);\\
 
-\lstset{language=c++}
-\begin{lstlisting}[frame=tb]{somecode}
-    num_of_threads_ = 1;
-#ifdef _OPENMP
-  num_of_threads_ = omp_get_max_threads() < bottom[0]->shape(0) ?
-                    omp_get_max_threads() : bottom[0]->shape(0);
-\end{lstlisting}
-
-继承BaseConvolutionLayer的ConvolutionLayer在前向计算中即可使用继承的成员变量num\_of\_threads\_推断线程数，进行OpenMP并行化：
-
-\lstset{language=c++}
-\begin{lstlisting}[frame=tb]{somecode}
-#ifdef _OPENMP
-    #pragma omp parallel for num_threads(this->num_of_threads_)
-#endif
-    for (int n = 0; n < this->num_; ++n) 
-    {
-        this->forward_cpu_gemm(bottom_data + n * this->bottom_dim_, weight, 
-        top_data + n * this->top_dim_);
-\end{lstlisting}
-
-反向传播同理：
-\lstset{language=c++}
-\begin{lstlisting}[frame=tb]{somecode}
-#ifdef _OPENMP
-    #pragma omp parallel for num_threads(this->num_of_threads_)
-#endif
-    for (int n = 0; n < this->num_; ++n) 
-    {// gradient w.r.t. bottom data, if necessary.
-          this->backward_cpu_gemm(top_diff + n * this->top_dim_, weight,
-          bottom_diff + n * this->bottom_dim_);
-\end{lstlisting}
+继承BaseConvolutionLayer的ConvolutionLayer在前向计算中即可使用继承的成员变量num\_of\_threads\_推断线程数，进行OpenMP并行化：\\
+\#ifdef \_OPENMP\\
+\indent    \#pragma omp parallel for num\_threads(this-\textgreater num\_of\_threads\_)\\
+\#endif\\
+\indent    for (int n = 0; n \textless this-\textgreater num\_; ++n)\\
+\indent    \{ \\
+\indent \indent        this-\textgreater forward\_cpu\_gemm(bottom\_data + n * this-\textgreater bottom\_dim\_, weight, top\_data + n * this-\textgreater top\_dim\_);\\
+\indent \indent ……\\
+反向传播同理：\\
+\#ifdef \_OPENMP \\
+\indent    \#pragma omp parallel for num\_threads(this-\textgreater num\_of\_threads\_) \\
+\#endif \\
+\indent    for (int n = 0; n \textless this-\textgreater num\_; ++n)\\
+\indent    \{// gradient w.r.t. bottom data, if necessary.\\
+\indent \indent          this-\textgreater backward\_cpu\_gemm(top\_diff + n * this-\textgreater top\_dim\_, weight, ……\\
 
 通过并行化GEMM矩阵相乘操作，我们完成了对卷积层的并行优化。
 
@@ -68,19 +55,34 @@ im2col函数将输入特征图原地展开为列向量，以将计算过程转化为稀疏矩阵与列向量相乘的
 \section{对Pooling层的优化}
 Pooling层将特征图做下采样处理，达到降维的目的。Caffe目前只实现了两种较为常用的Pooling操作：Average Pooling与Max Pooling。Average Pooling取下采样格子中各特征图像素的平均值作为输出，Max Pooling取下采样格子中各特征图像素的最大值作为输出。这种Pooling操作可以降维，同时大大增加卷积神经网络的鲁棒性、平移不变性。
 Caffe使用四重循环实现这两种Pooling操作，循环指标分别为图片批次、图片频道、长、宽。其中，后两重循环对每个下采样格子进行操作，各下采样格子之间完全独立。故，每个线程对应一个下采样格子，即可在保证代码正确性的前提下实现并行优化。
-具体到代码上的表达为：
+具体到代码上的表达为：\\
 
-\lstset{language=c++}
-\begin{lstlisting}[frame=tb]{somecode}
-#ifdef _OPENMP
-    #pragma omp parallel for collapse(2)
-    for (int n = 0; n < bottom[0]->num(); ++n) 
-    {
-      for (int c = 0; c < channels_; ++c) 
-      {
-\end{lstlisting}
-
+\#ifdef \_OPENMP\\
+\indent    \#pragma omp parallel for collapse(2)\\
+\indent    for (int n = 0; n \textless bottom[0]-\textgreater num(); ++n)\\
+\indent    \{\\
+\indent \indent      for (int c = 0; c \textless channels\_; ++c)\\
+\indent \indent     \{\\
+\indent \indent ……\\
 其中，预编译宏“collapse(2)”意为对下列代码的两重for循环都做展开，进行并行。由于外面两重循环分别代表对批次中的不同图片、图片中的不同频道迭代，这个预编译宏能够达到令每个下采样格子互相并行计算的效果。
 
 \section{对ReLU的优化}
-ReLU是目前卷积神经网络较为常用的神经单元激活函数。如前文所述，Caffe将数据组织为Blob在层之间流动，ReLU层每次处理一批神经元，计算它们的激活程度，作为输出传导到下一层。显然，每个神经元之间的激活程度只和其激活函数的输入有关，互相完全独立。故我们对ReLU层的前向和后向计算的for循环直接并行化。
+ReLU是目前卷积神经网络较为常用的神经单元激活函数。如前文所述，Caffe将数据组织为Blob在层之间流动，ReLU层每次处理一批神经元，计算它们的激活程度，作为输出传导到下一层。显然，每个神经元之间的激活程度只和其激活函数的输入有关，互相完全独立。故我们对ReLU层的前向和后向计算的for循环直接并行化：
+
+\#ifdef \_OPENMP\\
+\indent    \#pragma omp parallel for\\
+\#endif\\
+\indent for (int i = 0; i \textless count; ++i) \\
+\indent \{\\
+\indent \indent top\_data[i] = std::max(bottom\_data[i], Dtype(0)) + negative\_slope * std::min(bottom\_data[i], Dtype(0));\\
+\indent \}\\
+
+和\\
+
+\#ifdef \_OPENMP\\
+\indent    \#pragma omp parallel for\\
+\#endif\\
+\indent for (int i = 0; i \textless count; ++i) \\
+\indent \{\\
+\indent \indent bottom\_diff[i] = top\_diff[i] * ((bottom\_data[i] \textgreater 0) + negative\_slope * (bottom\_data[i] \textless= 0));\\
+\indent \}

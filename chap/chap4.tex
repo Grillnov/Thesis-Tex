@@ -35,17 +35,13 @@ OpenMP是一种开放标准的编译器并行化指导方案，只需在一些合适的地方输入预编译指令，
 
 BVLC的Caffe原版代码中并没有考虑加入OpenMP并行化，其多线程并行化主要体现在其依赖库上。如，OpenBLAS、ATLAS等CPU运行的BLAS支持OpenMP并行化，GPU上使用NVIDIA的CUDA通用计算库可以支持GPU的多线程并行。故，我们如果要在Caffe本身的代码中加入OpenMP并行化，需要在编译脚本中加入对OpenMP的支持。
 
-Caffe借助CMake寻找依赖包，生成编译脚本。我们需要在caffe-android-lib中的Caffe CMakelist.txt中加入对OpenMP的支持：
-\lstset{language=c++}
-\begin{lstlisting}[frame=tb]{somecode}
-    #add OpenMP
-    find_package(OpenMP)
-    if (OPENMP_FOUND)
-        message("OPENMP FOUND")
-        set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
-        set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
-    endif()
-\end{lstlisting}
+Caffe借助CMake寻找依赖包，生成编译脚本。我们需要在caffe-android-lib中的Caffe CMakelist.txt中加入对OpenMP的支持：\\
+    find\_package(OpenMP)\\
+    if (OPENMP\_FOUND)\\
+\indent    message("OPENMP FOUND")\\
+\indent    set (CMAKE\_C\_FLAGS "\${CMAKE\_C\_FLAGS} \${OpenMP\_C\_FLAGS}")\\
+\indent    set (CMAKE\_CXX\_FLAGS "\${CMAKE\_CXX\_FLAGS} \${OpenMP\_CXX\_FLAGS}")\\
+    endif()\\
 
 为支持OpenMP的软件指定线程数主要有两种方法：
 \begin{enumerate}
@@ -57,12 +53,10 @@ Caffe借助CMake寻找依赖包，生成编译脚本。我们需要在caffe-android-lib中的Caffe CMa
 本文使用显式方式指定线程数量，根据卷积层本身的维数性质计算出合适的线程数。
 
 由于Caffe最后被编译为动态链接库caffe.so供可执行文件caffe-time.bin运行时链接，我们还需要在环境变量LD\_LIBRARY\_PATH中加入动态链接库caffe.so的路径，以确保库能够被可执行文件找到。
-综上，在执行caffe-time.bin之前，我们需要通过adb shell运行如下脚本设定环境变量：
-\begin{lstlisting}[frame=tb]{somecode}
-    #!/system/bin/sh
-    export LD_LIBRARY_PATH=./:$LD_LIBRARY_PATH
-    export OMP_NUM_THREADS=4
-\end{lstlisting}
+综上，在执行caffe-time.bin之前，我们需要通过adb shell运行如下脚本设定环境变量：\\
+\#!/system/bin/sh\\
+export LD\_LIBRARY\_PATH=./:\$LD\_LIBRARY\_PATH\\
+export OMP\_NUM\_THREADS=4\\
 
 \section{基准测试}
 
@@ -92,38 +86,7 @@ I0101 01:10:40.450405  3686 caffe-time.cpp:90]      conv1forward: 158.396 ms.\\
 I0101 01:10:40.450447  3686 caffe-time.cpp:93]      conv1backward: 157.189 ms.\\
 I0101 01:10:40.450488  3686 caffe-time.cpp:90]      relu1forward: 14.4338 ms.\\
 I0101 01:10:40.450694  3686 caffe-time.cpp:93]      relu1backward: 0.00406 ms.\\
-I0101 01:10:40.450765  3686 caffe-time.cpp:90]      norm1forward: 61.1189 ms.\\
-I0101 01:10:40.450791  3686 caffe-time.cpp:93]      norm1backward: 69.6954 ms.\\
-I0101 01:10:40.450812  3686 caffe-time.cpp:90]      pool1forward: 104.729 ms.\\
-I0101 01:10:40.450834  3686 caffe-time.cpp:93]      pool1backward: 0.00524 ms.\\
-I0101 01:10:40.450855  3686 caffe-time.cpp:90]      conv2forward: 316.762 ms.\\
-I0101 01:10:40.450878  3686 caffe-time.cpp:93]      conv2backward: 306.659 ms.\\
-I0101 01:10:40.450899  3686 caffe-time.cpp:90]      relu2forward: 13.2367 ms.\\
-I0101 01:10:40.450920  3686 caffe-time.cpp:93]      relu2backward: 0.00414 ms.\\
-I0101 01:10:40.450942  3686 caffe-time.cpp:90]      norm2forward: 47.8888 ms.\\
-I0101 01:10:40.450963  3686 caffe-time.cpp:93]      norm2backward: 47.677 ms.\\
-I0101 01:10:40.450985  3686 caffe-time.cpp:90]      pool2forward: 64.9354 ms.\\
-I0101 01:10:40.451006  3686 caffe-time.cpp:93]      pool2backward: 0.00482 ms.\\
-I0101 01:10:40.451028  3686 caffe-time.cpp:90]      conv3forward: 209.004 ms.\\
-I0101 01:10:40.451049  3686 caffe-time.cpp:93]      conv3backward: 211.287 ms.\\
-I0101 01:10:40.451070  3686 caffe-time.cpp:90]      relu3forward: 3.98946 ms.\\
-I0101 01:10:40.451089  3686 caffe-time.cpp:93]      relu3backward: 0.00468 ms.\\
-I0101 01:10:40.451109  3686 caffe-time.cpp:90]      conv4forward: 156.937 ms.\\
-I0101 01:10:40.451132  3686 caffe-time.cpp:93]      conv4backward: 157.686 ms.\\
-I0101 01:10:40.451151  3686 caffe-time.cpp:90]      relu4forward: 3.49588 ms.\\
-I0101 01:10:40.451172  3686 caffe-time.cpp:93]      relu4backward: 0.00434 ms.\\
-I0101 01:10:40.451191  3686 caffe-time.cpp:90]      conv5forward: 107.479 ms.\\
-I0101 01:10:40.451212  3686 caffe-time.cpp:93]      conv5backward: 107.145 ms.\\
-I0101 01:10:40.451232  3686 caffe-time.cpp:90]      relu5forward: 2.47902 ms.\\
-I0101 01:10:40.451253  3686 caffe-time.cpp:93]      relu5backward: 0.00286 ms.\\
-I0101 01:10:40.451272  3686 caffe-time.cpp:90]      pool5forward: 14.9739 ms.\\
-I0101 01:10:40.451293  3686 caffe-time.cpp:93]      pool5backward: 0.00368 ms.\\
-I0101 01:10:40.451313  3686 caffe-time.cpp:90]        fc6forward: 203.838 ms.\\
-I0101 01:10:40.451333  3686 caffe-time.cpp:93]        fc6backward: 74.5167 ms.\\
-I0101 01:10:40.451355  3686 caffe-time.cpp:90]      relu6forward: 0.41766 ms.\\
-I0101 01:10:40.451375  3686 caffe-time.cpp:93]      relu6backward: 0.00292 ms.\\
-I0101 01:10:40.451395  3686 caffe-time.cpp:90]      drop6forward: 0.44218 ms.\\
-I0101 01:10:40.451415  3686 caffe-time.cpp:93]      drop6backward: 0.0051 ms.\\
+……\\
 I0101 01:10:40.451435  3686 caffe-time.cpp:90]        fc7forward: 83.049 ms.\\
 I0101 01:10:40.451457  3686 caffe-time.cpp:93]        fc7backward: 34.9812 ms.\\
 I0101 01:10:40.451476  3686 caffe-time.cpp:90]      relu7forward: 0.26226 ms.\\
