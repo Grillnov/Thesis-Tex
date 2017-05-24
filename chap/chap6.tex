@@ -1,26 +1,50 @@
 \chapter{优化结果}
 经过上一节中的并行化优化，Caffe在支持Arm64-v8a平台上的执行速度得到了明显提升。
 
+\begin{figure}
+\centering
+\includegraphics[totalheight=8in]{img/AlexResults.png}
+\caption{AlexNet的测试结果对比。\label{AlexResults}}
+\end{figure}
+
+\begin{figure}
+\centering
+\includegraphics[totalheight=3in]{img/AlexSum.png}
+\caption{分层表示的AlexNet测试结果对比。一些操作数极少的层因时间太短被忽略。 \label{AlexSum}}
+\end{figure}
+
 \section{AlexNet~\supercite{AlexNet}基准的优化结果}
-测试平台如下：【Qualcomm 820板子参数】，网络定义选取BVLC提供的AlexNet~\supercite{AlexNet} ProtoTXT配置文件~\supercite{BVLCAlexNet}，进行50次迭代的结果对比如下：
-未经优化，直接移植的版本给出的输出：\\
+测试平台为Open-Q 820开发板~\supercite{OpenQ820}。CPU为Qualcomm\textregistered Kryo\textsuperscript{TM} CPU, 四核64位, 主频2.2GHz，网络定义选取BVLC提供的AlexNet~\supercite{AlexNet} ProtoTXT配置文件~\supercite{BVLCAlexNet}，进行50次迭代。执行命令为：./build/tools/caffe-time.bin --model=./models/bvlc\_alexnet/deploy.prototxt –iterations 50 \\
+未经优化，直接移植的版本给出的输出（节选）：\\
 I0101 01:03:32.593662  3664 caffe-time.cpp:98] Average Forward pass: 1971.22 ms.\\
 I0101 01:03:32.593865  3664 caffe-time.cpp:100] Average Backward pass: 1418.77 ms.\\
 I0101 01:03:32.594115  3664 caffe-time.cpp:102] Average Forward-Backward: 3390.52 ms.\\
 I0101 01:03:32.594271  3664 caffe-time.cpp:104] Total Time: 169526 ms.\\
 
-经过优化之后的输出如下：\\
+经过优化之后的输出如下：（节选）\\
 I0101 01:10:40.451649  3686 caffe-time.cpp:98] Average Forward pass: 1591.12 ms.\\
 I0101 01:10:40.451672  3686 caffe-time.cpp:100] Average Backward pass: 1177.4 ms.\\
 I0101 01:10:40.451692  3686 caffe-time.cpp:102] Average Forward-Backward: 2768.74 ms.\\
 I0101 01:10:40.451713  3686 caffe-time.cpp:104] Total Time: 138437 ms.\\
 
-相比优化之前，总体的执行时间少18%。
-【各层执行时间对比的数据表格、各层单独优化情况】
+相比优化之前，总体的执行时间少18\%。各层的性能见\ref{AlexResults}，总的结果对比见\ref{AlexSum}。
 
 \section{GoogleNet基准的优化结果}
+
+\begin{figure}
+\centering
+\includegraphics[totalheight=8in]{img/GoogleResults.png}
+\caption{分层表示的GoogleNet测试结果对比。一些操作数极少的层因时间太短被忽略。 \label{GoogleResults}}
+\end{figure}
+
+\begin{figure}
+\centering
+\includegraphics[totalheight=3in]{img/GoogleSum.png}
+\caption{GoogleNet测试结果对比。 \label{GoogleSum}}
+\end{figure}
+
 GoogleNet~\supercite{GoogleNet}是2014年ImageNet ILSVRC图像识别大赛的冠军网络，由22层网络构成。其网络结构较AlexNet大很多，计算量也更贴近近些年来新提出的卷积神经网络模型计算量。使用GoogleNet~\supercite{GoogleNet}网络对我们的优化效果做基准测试很有必要。
-测试平台同9.1，网络定义选取BVLC提供的GoogleNet~\supercite{GoogleNet} ProtoTXT配置文件~\supercite{BVLCGoogleNet}，进行50次迭代的结果对比如下：
+测试平台同9.1，网络定义选取BVLC提供的GoogleNet~\supercite{GoogleNet} ProtoTXT配置文件~\supercite{BVLCGoogleNet}，进行50次迭代。执行命令为：./build/tools/caffe-time.bin --model=./models/bvlc\_googlenet/deploy.prototxt –iterations 50 \\
 未经优化，直接移植的版本给出的输出：\\
 I0101 01:36:44.662608  3781 caffe-time.cpp:98] Average Forward pass: 7039.31 ms.\\
 I0101 01:36:44.662745  3781 caffe-time.cpp:100] Average Backward pass: 4331.88 ms.\\
@@ -33,7 +57,10 @@ I0101 01:48:43.451734  3803 caffe-time.cpp:100] Average Backward pass: 3699.81 m
 I0101 01:48:43.451839  3803 caffe-time.cpp:102] Average Forward-Backward: 9952.54 ms.\\
 I0101 01:48:43.451954  3803 caffe-time.cpp:104] Total Time: 497627 ms.\\
 
-所用时间减少12.5%。
-【各层执行时间对比的数据表格、各层单独优化情况】
+总体所用时间减少12.5\%。 各层的性能见\ref{GoogleResults}，总的结果对比见\ref{GoogleSum}。
 
-【所有的柱状图】
+\section{对结果的讨论}
+
+经过优化之后，我们的解决方案运行速度得到了长足的提升。卷积层的计算速度平均提升约19\%（AlexNet~\supercite{AlexNet}为19.1\%，GoogleNet~\supercite{GoogleNet}为19.2\%），全连接层提升约5\%。对AlexNet和GoogleNet，整体性能分别提升了18\%和12.5\%。
+
+然而，池化层(Pooling Layer)的表现并不尽人意，个别层甚至有消耗时间反常变多的现象。这可能是因为优化时的粒度太细，直接细分到了多重循环中的最外两重循环，导致线程数过多，线程间协调通信的overhead抵消了并行处理的优势。

@@ -21,6 +21,4 @@ CaffeÒò´ËÒ»Ö±ÒòÄÚ´æ¿Õ¼äÏûºÄ¾Þ´óÎªÓÃ»§Ú¸²¡¡£ÕâÒ»ÁÓÊÆÔÚGPUÉÏÌåÏÖµÃÓÈÆäÍ»³ö¡ª¡ªCPU¶
 
 Áí£¬µ×²ã¼ÆËã¿âOpenBLASÔÚ±¾ÎÄ·¢±íÊ±ÒÑ¾­·¢²¼ÁËOpenBLAS optimized for deep learning·ÖÖ§°æ±¾~\supercite{OpenBLASDL}£¬ÒýÈëÁËÕë¶ÔÉî¶ÈÑ§Ï°µÄ×¨ÓÃÓÅ»¯¡£ÈçÄÜ½«±¾ÎÄÊµÏÖÖÐµÄOpenBLASÒÀÀµ¿âÌæ»»Îª¸Ã°æ±¾£¬¶ÔÐÔÄÜÓ¦µ±Ò²ÓÐÒ»¶¨µÄÌáÉý¡£
 
-³Ø»¯²ã(Pooling Layer)µÄ²¢ÐÐ»¯Ð§¹û±È½Ï²î£¬°´6.3ÖÐµÄÌÖÂÛ£¬Ó¦µ±ÊÊµ±·Å´Ö²¢ÐÐ»¯µÄ·Ö¸îÁ£¶È£¬±ÜÃâÏß³ÌÊý¹ý¶àµ¼ÖÂoverheadÊ±¼äµÖÏû¼ÆËãËÙ¶È¡£
-
 Armeabi-v7aÒÔ¼°¸üÐÂ¼Ü¹¹µÄÖ¸Áî¼¯ÒýÈëÁË¸¡µãÖ¸Áî¼¯ÓëNEONµ¥Ö¸Áî¶àÊý¾ÝÀ©Õ¹£¬²»ÔÙÊ¹ÓÃÐÔÄÜµÍÏÂµÄÈíÄ£Äâ·½Ê½ÊµÏÖ¸¡µãÔËËã¡£Èç¹ûÄÜ´Ó»ã±à²ãÃæÉÏ¶ÔOpenBLASµÄºËÐÄ×÷½øÒ»²½ÓÅ»¯£¬½«·ÇÏòÁ¿»¯µÄ»ã±àÖ¸ÁîÌæ»»ÎªµÈÐ§µÄÏòÁ¿»¯»ã±àÖ¸Áî£¬³ä·Ö·¢»Óµ¥Ö¸Áî¶àÊý¾Ý»ã±àµÄÓÅÊÆ£¬ÄÇÃ´Caffe½«µÃµ½³¬³öOpenMP ¶àÏß³Ì²¢ÐÐ»¯²ã´ÎÖ®ÍâµÄÐÔÄÜÌáÉý¡£

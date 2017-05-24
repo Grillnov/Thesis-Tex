@@ -5,7 +5,7 @@
 
 	物体识别、图像分类、语义处理等计算机视觉领域中的基本任务目前广泛依赖各种机器学习方法。卷积神经网络(Convolutional Neural Network, CNN)凭借其精度优势，逐渐在图像方面的任务中占据主导地位。但由于CNN所含卷积层、全连接层有着庞大的浮点数计算量，CNN模型长期以来在计算性能较弱的便携设备上难以得到广泛应用。随着ARM架构引入对浮点数更强的硬件性能提升，手机厂商开始考虑尝试利用CNN模型完成多媒体任务，以期显著提升用户体验。
 
-各种深度学习框架为灵活快捷地实现不同结构的CNN模型提供了极大的便利。这些框架中，伯克利视觉与学习中心(Berkeley Vision and Learning Center, BVLC) 推出的开源深度学习框架Caffe 因其在PC端的优异性能被我们选中，作为手机上的首选深度学习解决方案。本文基于OpenMP并行化技术，针对Arm64-v8a 这一新一代手机支持的ARM架构CPU提出了Caffe的一个优化版本。本文提出优化版Caffe运行AlexNet~\supercite{AlexNet}网络和GoogleNet~\supercite{GoogleNet}网络时，成功在Arm64-v8a架构的Open-Q 820开发板上分别获得了约18\%和约12\%的性能提升。
+各种深度学习框架为灵活快捷地实现不同结构的CNN模型提供了极大的便利。这些框架中，伯克利视觉与学习中心(Berkeley Vision and Learning Center, BVLC) 推出的开源深度学习框架Caffe 因其在PC端的优异性能被我们选中，作为手机上的首选深度学习解决方案。本文基于OpenMP并行化技术，针对Arm64-v8a 这一新一代手机支持的ARM架构CPU提出了Caffe的一个优化版本。本文提出优化版Caffe运行AlexNet网络时，成功在Arm64-v8a架构的Qualcomm Open-Q 820开发板上获得了约18\%的性能提升。
 
 
 \end{cabstract}
@@ -15,7 +15,8 @@
 
 	Machine learning methods are widely being used in solving basic objectives in computer vision such as object detection, image classification and image semantic analysis. Among numerous machine learning algorithms, convolutional neural networks became the dominant one in image processing for its splendid precision. However, implementing these CNN related models on embedded devices with relatively poorer performance was generally considered impractical, due to its high volume of floating-point computation introduced by its convolutional layers and fully-connected layers. With ARM architecture's hardware floating-point computation capabilities enhancing, nowadays smart phone manufacturers are seeking solutions for implementing CNN models on smart phones to accomplish multi-media related tasks, to significantly boost their user experience.
 
-The emerge of deep learning frameworks made it possible to implement various CNN models with different structures with ease. Among all these frameworks, Caffe, an open-source deep learning framework developed and maintained by Berkeley Vision and Learning Center(BVLC) was chose as the subject of this paper for mobile phone deep learning solution due to its superior performance on PC. This paper introduces an optimized version of Caffe, parallelized with OpenMP specifically for Arm64-v8a, an ARM architecture commonly seen among latest generations of smart phone chips. The optimization proposed by this paper managed to boost the performance of AlexNet~\supercite{AlexNet} and GoogleNet~\supercite{GoogleNet} on Arm64-v8a based Open-Q 820 development kit by approximately 18\% and 12\% respectively.
+The emerge of deep learning frameworks made it possible to implement various CNN models with different structures with ease. Among all these frameworks, Caffe, an open-source deep learning framework developed and maintained by Berkeley Vision and Learning Center(BVLC) was chose as the subject of this paper for mobile phone deep learning solution due to its superior performance on PC. This paper introduces an optimized version of Caffe, optimized with OpenMP specifically for Arm64-v8a, an ARM architecture commonly seen among recent generations of smart phones. The optimization proposed by this paper managed to boost the performance of AlexNet on Arm64-v8a based Qualcomm Open-Q 820 board by approximately 18\%.
 
 
 \end{eabstract}
+

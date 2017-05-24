@@ -31,7 +31,6 @@ im2col的逆操作，将列向量转回图片。运算量同理。
 
 故，我们在基类BaseConvolutionLayer中维护成员变量num\_of\_threads\_为设定的线程数，并设定其初始值为1。解析网络结构配置文件之后，我们取num\_of\_threads\_为OpenMP在平台上最多支持的线程数和Batch Size二者之间较小者。
 即\\
-
 $num\_of\_threads = min (omp\_get\_max\_threads(), Batch Size)$\\
 
 具体到代码上的表达为：\\
@@ -39,7 +38,6 @@ $num\_of\_threads = min (omp\_get\_max\_threads(), Batch Size)$\\
 \#ifdef \_OPENMP\\
 \indent  num\_of\_threads\_ = omp\_get\_max\_threads() \textless bottom[0]-\textgreater shape(0) ? \\
 \indent omp\_get\_max\_threads() : bottom[0]-\textgreater shape(0);\\
-……\\
 
 继承BaseConvolutionLayer的ConvolutionLayer在前向计算中即可使用继承的成员变量num\_of\_threads\_推断线程数，进行OpenMP并行化：\\
 \#ifdef \_OPENMP\\

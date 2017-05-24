@@ -20,8 +20,8 @@
 
 	\section{卷积层}
 
-卷积层是CNN的主要组成层，其原理如上述。计算过程的表达式可形式化表示为~\supercite{Caffeine}\\
-$Out[m][r][c] = \sum_{n=0}^N\sum_{i=0}^{K_1}\sum_{j=0}^{K_2}W[m][n][i][j]*In[n][S_1*r+i][S2*c+j]$\\
+卷积层是CNN的主要组成层，其原理如上述。计算过程的表达式可形式化表示为：\\
+~\supercite{Caffeine}为$Out[m][r][c] = \sum_{n=0}^N\sum_{i=0}^{K_1}\sum_{j=0}^{K_2}W[m][n][i][j]*In[n][S_1*r+i][S2*c+j]$\\
 描述该层如何卷积需要如下几个预定的超参数：
 
 	\begin{enumerate}
@@ -44,12 +44,11 @@ $Out[m][r][c] = \sum_{n=0}^N\sum_{i=0}^{K_1}\sum_{j=0}^{K_2}W[m][n][i][j]*In[n][
 
 \begin{figure}
 \centering
-\includegraphics[totalheight=3in]{img/Epoch.png}
-\caption{不同激活函数的收敛速度。本图反应一个四层卷积神经网络在CIFAR-10~\supercite{CIFAR}数据集上的训练收敛过程，横轴为训练集所有图片的训练迭代世代数，纵轴为模型的错误率。
-        实线代表激活函数为ReLU，虚线代表激活函数为$tanh$。由图可见ReLU的收敛速度快6倍左右。 \label{Epochs}}
+\includegraphics[totalheight=3in]{img/Neuron.png}
+\caption{人工神经元示意图 \label{Neuron}}
 \end{figure}
 
-	ReLU~\supercite{ReLU}函数的定义：
+	ReLU函数的定义：
 
 \begin{equation}
 f(x)=
@@ -62,7 +61,7 @@ f(x)=
 \right.
 \end{equation}
 
-AlexNet~\supercite{AlexNet}论文中指出，使用不同的激活函数时，损失函数收敛到极小值的速度不同，见图\ref{Epochs}。对卷积神经网络，ReLU激活函数值没有上界，收敛较快，故得到了包括AlexNet~\supercite{AlexNet}在内的许多CNN模型的应用。
+AlexNet~\supercite{AlexNet}提出，使用不同的激活函数时，损失函数收敛到极小值的速度不同~\supercite{AlexNet}。对卷积神经网络，ReLU激活函数值没有上界，收敛较快，故得到了包括AlexNet~\supercite{AlexNet}在内的许多CNN模型的应用。
 	\section{池化层}
 
 池化层（Pooling Layer）对输入进行下采样操作，以达到对输入的降维，同时可以提高网络对输入图像的空间不变性。最常用的池化方法是Max Pooling （每个下采样窗口保留值最大的）和Average Pooling （每个下采样窗口取包含特征图像素的平均值）

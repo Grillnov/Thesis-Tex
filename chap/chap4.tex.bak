@@ -76,7 +76,12 @@ caffe-time.bin代表含有time函数的可执行文件；model参数赋值为AlexNet的ProtoTXT格式
 I0101 01:08:22.013758  3686 caffe-time.cpp:56] Testing for 50 iterations.\\
 I0101 01:08:25.120884  3686 caffe-time.cpp:84] Iteration: 1 forward-backward time: 3107 ms.\\
 I0101 01:08:27.764709  3686 caffe-time.cpp:84] Iteration: 2 forward-backward time: 2643 ms.\\
+I0101 01:08:30.477269  3686 caffe-time.cpp:84] Iteration: 3 forward-backward time: 2712 ms.\\
+I0101 01:08:33.219909  3686 caffe-time.cpp:84] Iteration: 4 forward-backward time: 2742 ms.\\
+I0101 01:08:35.858683  3686 caffe-time.cpp:84] Iteration: 5 forward-backward time: 2638 ms.\\
+I0101 01:08:38.482145  3686 caffe-time.cpp:84] Iteration: 6 forward-backward time: 2623 ms.\\
 ……\\
+I0101 01:10:31.874108  3686 caffe-time.cpp:84] Iteration: 47 forward-backward time: 2829 ms.\\
 I0101 01:10:34.847990  3686 caffe-time.cpp:84] Iteration: 48 forward-backward time: 2973 ms.\\
 I0101 01:10:37.622038  3686 caffe-time.cpp:84] Iteration: 49 forward-backward time: 2773 ms.\\
 I0101 01:10:40.450104  3686 caffe-time.cpp:84] Iteration: 50 forward-backward time: 2827 ms.\\
@@ -88,6 +93,13 @@ I0101 01:10:40.450447  3686 caffe-time.cpp:93]      conv1backward: 157.189 ms.\\
 I0101 01:10:40.450488  3686 caffe-time.cpp:90]      relu1forward: 14.4338 ms.\\
 I0101 01:10:40.450694  3686 caffe-time.cpp:93]      relu1backward: 0.00406 ms.\\
 ……\\
+I0101 01:10:40.451435  3686 caffe-time.cpp:90]        fc7forward: 83.049 ms.\\
+I0101 01:10:40.451457  3686 caffe-time.cpp:93]        fc7backward: 34.9812 ms.\\
+I0101 01:10:40.451476  3686 caffe-time.cpp:90]      relu7forward: 0.26226 ms.\\
+I0101 01:10:40.451497  3686 caffe-time.cpp:93]      relu7backward: 0.00266 ms.\\
+I0101 01:10:40.451517  3686 caffe-time.cpp:90]      drop7forward: 0.47262 ms.\\
+I0101 01:10:40.451538  3686 caffe-time.cpp:93]      drop7backward: 0.00318 ms.\\
+I0101 01:10:40.451557  3686 caffe-time.cpp:90]        fc8forward: 21.9401 ms.\\
 I0101 01:10:40.451578  3686 caffe-time.cpp:93]        fc8backward: 10.1705 ms.\\
 I0101 01:10:40.451598  3686 caffe-time.cpp:90]       probforward: 0.45548 ms.\\
 I0101 01:10:40.451619  3686 caffe-time.cpp:93]       probbackward: 0.1202 ms.\\
